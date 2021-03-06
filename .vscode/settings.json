@@ -1,0 +1,21 @@
+{
+    "files.exclude": {
+        "target": true
+    },
+    "cSpell.ignoreWords": [
+        "agregator",
+        "analys",
+        "perfectiveground",
+        "preprocess",
+        "rsmorphy",
+        "rvre",
+        "ukstemmer",
+        "vovel",
+        "whatlang",
+        "аеиоуюяіїє",
+        "ивши",
+        "ившись",
+        "ывши",
+        "ывшись"
+    ]
+}
