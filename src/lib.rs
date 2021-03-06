@@ -4,8 +4,7 @@ use whatlang::{detect, Lang};
 mod get_data;
 pub use get_data::*;
 
-mod summarizer;
-// use summarizer;
+pub mod summarizer;
 
 pub use stemmer_uk::stem_word;
 

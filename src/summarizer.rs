@@ -114,7 +114,7 @@ fn sentence_similarity(s1: &[&str], s2: &[&str], stop_words: &[&str]) -> f64 {
 /// We take a leap of faith here and assume that cosine similarity is similar to the probability
 /// that a sentence is important for summarization
 ///
-fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) -> Array2<f64> {
+pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) -> Array2<f64> {
     let len = sentences.len();
     let mut matrix = Array2::<f64>::zeros((len, len));
     let mut sum_column: Vec<f64> = vec![0.0; len];
