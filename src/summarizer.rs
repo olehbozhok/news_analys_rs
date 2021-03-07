@@ -105,7 +105,7 @@ fn sentence_similarity(s1: &[&str], s2: &[&str], stop_words: &[&str]) -> f64 {
     let all_words = get_all_words_lc(s1, s2);
     let v1 = get_sentence_vector(s1, &all_words, stop_words);
     let v2 = get_sentence_vector(s2, &all_words, stop_words);
-    1.0 - cosine_distance(&v1, &v2)
+    cosine_distance(&v1, &v2)
 }
 
 ///
