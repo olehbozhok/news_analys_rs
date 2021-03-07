@@ -1,5 +1,7 @@
 use ndarray::{Array1, Array2};
+use rayon::prelude::*;
 use std::collections::BTreeSet;
+use std::sync::Mutex;
 use unicode_segmentation::UnicodeSegmentation;
 
 fn summarize(text: &str, stop_words: &[&str], num_sentence: usize) -> String {
@@ -90,7 +92,7 @@ fn root_sum_square(vec: &Vec<usize>) -> f64 {
 fn dot_product(vec1: &Vec<usize>, vec2: &Vec<usize>) -> usize {
     let delta = vec1.len() - vec2.len();
     let shortest_vec = match delta {
-        d if d < 0 => vec1,
+        d if d <= 0 => vec1,
         d if d > 0 => vec2,
         _ => vec1,
     };
@@ -118,15 +120,30 @@ pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) 
     let len = sentences.len();
     let mut matrix = Array2::<f64>::zeros((len, len));
     let mut sum_column: Vec<f64> = vec![0.0; len];
-    for i in 0..len {
+    let m = Mutex::new(&mut matrix);
+
+    let count = Mutex::new(0);
+    (0..len).into_par_iter().for_each(|i| {
         for j in 0..len {
             if i == j {
                 continue;
             }
-            matrix[[i, j]] =
+            let res =
                 sentence_similarity(sentences[i].as_slice(), sentences[j].as_slice(), stop_words);
+            {
+                let mut matr = m.lock().unwrap();
+                (*matr)[[i, j]] = res;
+            }
         }
-    }
+        let c;
+        {
+            let mut count2 = count.lock().unwrap();
+            *count2 += 1;
+            c = *count2
+        }
+        println!("build_similarity_matrix {}%", c as f32 / len as f32 * 100.0);
+    });
+
     // at this point we have the cosine similarity of each sentence.
     // take a leap of faith and assume that the cosine similarity is the probability that a sentence
     // is important for summarization.

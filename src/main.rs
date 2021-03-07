@@ -30,7 +30,7 @@ fn main() {
     let stem_sentence = prepare_sentences(sentences, Lang::Ukr);
     println!("filtered by len data count {}", stem_sentence.len());
 
-    let split_at = 200;
+    let split_at = 1000;
     let (stem_sentence, _) = stem_sentence.split_at(split_at);
 
     let mut sentences_and_words = vec![];
@@ -45,7 +45,9 @@ fn main() {
         sentences_and_words.push(result);
     });
 
+    println!("start build similarity_matrix");
     let symilarity_matrix = summarizer::build_similarity_matrix(&sentences_and_words, &stop_words);
+    println!("done build similarity_matrix");
 
     let mut symilarity_vals = vec![];
     symilarity_matrix.iter().for_each(|&v| {
@@ -54,11 +56,12 @@ fn main() {
         }
     });
 
-    let mut out_writer: Box<Write> =
-        Box::new(BufWriter::new(File::create(&Path::new("out.txt")).unwrap()));
+    let mut out_writer = Box::new(BufWriter::new(File::create(&Path::new("out.txt")).unwrap()));
     out_writer.write(b"Test output\n").unwrap();
 
+    println!("start calc mediana");
     let symilarity_median = calculate_mediana(&mut symilarity_vals);
+    println!("done calc mediana");
 
     writeln!(&mut out_writer, " median {}", symilarity_median).unwrap();
 
@@ -67,7 +70,9 @@ fn main() {
 
     for i in 0..i_max {
         let mut writed = false;
-        for j in i..j_max {
+
+        let j_min = if i < 200 { 0 } else { i - 200 };
+        for j in j_min..i {
             let sym = symilarity_matrix[[i, j]];
             if sym > symilarity_median + symilarity_median * 1.0 / 51.0 {
                 if !writed {
