@@ -7,8 +7,6 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-// use stemmer::Stemmer;
-
 fn main() {
     println!("start");
 
