@@ -4,12 +4,23 @@ use std::{fs, io::Read};
 use serde_json;
 use serde_json::Value;
 
-type VecStr = Vec<String>;
+type VecData = Vec<Data>;
 
-fn get_titles(v: &Value, titles: &mut VecStr) {
-    if let Some(v) = v.get("Title") {
-        titles.push(v.to_string());
-    };
+pub struct Data {
+    pub created: i64,
+    pub title: String,
+}
+
+fn get_titles(v: &Value, titles: &mut VecData) {
+    let created = v.get("DateCreated");
+    let title = v.get("Title");
+    if created.is_some() && title.is_some() {
+        titles.push(Data {
+            title: title.unwrap().to_string(),
+            created: created.unwrap().as_i64().unwrap(),
+        })
+    }
+
     if let Some(v) = v.get("News") {
         if let Some(v) = v.as_array() {
             titles.reserve(v.len());
@@ -18,7 +29,7 @@ fn get_titles(v: &Value, titles: &mut VecStr) {
     }
 }
 
-pub fn get_data<P: AsRef<Path>>(path: P) -> Option<VecStr> {
+pub fn get_data<P: AsRef<Path>>(path: P) -> Option<VecData> {
     let mut buf = String::new();
     {
         let _file = fs::File::open(path)
@@ -31,14 +42,14 @@ pub fn get_data<P: AsRef<Path>>(path: P) -> Option<VecStr> {
 
     let json_arr = json.as_array().unwrap();
 
-    let mut titles: VecStr = Vec::new();
+    let mut titles: VecData = Vec::new();
 
     json_arr.iter().for_each(|v| get_titles(v, &mut titles));
 
     return Some(titles);
 }
 
-pub fn load_stop_words<P: AsRef<Path>>(path: P) -> Option<VecStr> {
+pub fn load_stop_words<P: AsRef<Path>>(path: P) -> Option<Vec<String>> {
     let mut buf = String::new();
     {
         let _file = fs::File::open(path)

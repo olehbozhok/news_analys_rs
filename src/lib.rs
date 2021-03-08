@@ -14,19 +14,20 @@ pub struct StemWord {
 }
 
 pub struct StemSentence {
-    pub origin: String,
+    pub origin_id: usize,
     pub stem: Vec<StemWord>,
 }
 
-pub fn prepare_sentences(sent: Vec<String>, lang: Lang) -> Vec<StemSentence> {
+pub fn prepare_sentences(sent: Vec<&str>, lang: Lang) -> Vec<StemSentence> {
     sent.into_par_iter()
-        .filter(|q| {
+        .enumerate()
+        .filter(|(_i, q)| {
             let info = detect(q).unwrap();
             info.lang() == lang && info.is_reliable()
         })
-        .map(|sen| StemSentence {
-            origin: sen.clone(),
-            stem: stem_sentence(sen),
+        .map(|(i, sen)| StemSentence {
+            origin_id: i,
+            stem: stem_sentence(sen.into()),
         })
         .collect()
 }

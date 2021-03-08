@@ -24,8 +24,13 @@ fn main() {
         .iter()
         .for_each(|s| stop_words.push(s.as_str()));
 
-    let sentences = get_data("newsAgregatorDB.json").unwrap();
-    println!("raw data count {}", sentences.len());
+    let sentences_data = get_data("newsAgregatorDB.json").unwrap();
+    println!("raw data count {}", sentences_data.len());
+
+    let sentences: Vec<&str> = sentences_data
+        .iter()
+        .map(|data| data.title.as_str())
+        .collect();
 
     let stem_sentence = prepare_sentences(sentences, Lang::Ukr);
     println!("filtered by len data count {}", stem_sentence.len());
@@ -79,7 +84,7 @@ fn main() {
     writeln!(&mut out_writer, " median {}", symilarity_median).unwrap();
 
     let sh = symilarity_matrix.shape();
-    let (i_max, j_max) = (sh[0] - 1, sh[1] - 1);
+    let (i_max, _j_max) = (sh[0] - 1, sh[1] - 1);
 
     for i in 0..i_max {
         let mut writed = false;
@@ -89,10 +94,20 @@ fn main() {
             let sym = symilarity_matrix[[i, j]];
             if sym > symilarity_median + symilarity_median * 1.0 / 51.0 {
                 if !writed {
-                    writeln!(&mut out_writer, "!!!!! {} {}", i, stem_sentence[i].origin).unwrap();
+                    writeln!(
+                        &mut out_writer,
+                        "!!!!! {} {}",
+                        i, &sentences_data[stem_sentence[i].origin_id].title
+                    )
+                    .unwrap();
                     writed = true;
                 }
-                writeln!(&mut out_writer, "   {} {}", sym, stem_sentence[j].origin).unwrap();
+                writeln!(
+                    &mut out_writer,
+                    "   {} {}",
+                    sym, sentences_data[stem_sentence[j].origin_id].title
+                )
+                .unwrap();
             } else {
                 // writeln!(&mut out_writer, "i:{} j:{} - {}", i, j, sym);
             }
@@ -107,7 +122,12 @@ fn main() {
     .unwrap();
     let sent_rank = summarizer::calculate_sentence_rank(&symilarity_matrix);
     sent_rank.into_iter().enumerate().for_each(|(i, v)| {
-        writeln!(&mut out_writer, " {}\n{}", v, stem_sentence[i].origin).unwrap();
+        writeln!(
+            &mut out_writer,
+            " {}\n{}",
+            v, sentences_data[stem_sentence[i].origin_id].title
+        )
+        .unwrap();
     });
     println!("done2")
 }
