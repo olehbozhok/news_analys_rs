@@ -7,6 +7,8 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
+use ngrams::Ngrams;
+
 fn main() {
     println!("start");
 
@@ -32,6 +34,7 @@ fn main() {
     let (stem_sentence, _) = stem_sentence.split_at(split_at);
 
     let mut sentences_and_words = vec![];
+    let mut sentences_and_ngrams = vec![];
     stem_sentence.iter().for_each(|sentence| {
         let mut result = Vec::with_capacity(sentence.stem.len());
 
@@ -39,9 +42,21 @@ fn main() {
             .stem
             .iter()
             .for_each(|word| result.push(word.stem.as_str()));
+        sentences_and_words.push(result.clone());
 
-        sentences_and_words.push(result);
+        let iter = result.into_iter();
+        let grams: Vec<_> = Ngrams::new(iter, 3).pad().map(|v| v.join(" ")).collect();
+        sentences_and_ngrams.push(grams);
     });
+    let mut slice_sentences_and_ngrams: Vec<Vec<&str>> = sentences_and_ngrams
+        .iter()
+        .map(|v| v.iter().map(|v2| v2.as_str()).collect())
+        .collect();
+
+    sentences_and_words
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| v.append(&mut slice_sentences_and_ngrams[i]));
 
     println!("start build similarity_matrix");
     let symilarity_matrix = summarizer::build_similarity_matrix(&sentences_and_words, &stop_words);

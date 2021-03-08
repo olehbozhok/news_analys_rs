@@ -149,7 +149,7 @@ pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) 
 /// Calculate a sentence rank similar to a page rank.
 /// Please refer to [PageRank](https://en.wikipedia.org/wiki/PageRank) for more details.
 ///
-fn calculate_sentence_rank(similarity_matrix: &Array2<f64>) -> Vec<f64> {
+pub fn calculate_sentence_rank(similarity_matrix: &Array2<f64>) -> Vec<f64> {
     let num_sentence = similarity_matrix.shape()[1];
     let threshold = 0.001;
     // Initialize a vector with the same value 1/number of sentences. Uniformly distributed across
