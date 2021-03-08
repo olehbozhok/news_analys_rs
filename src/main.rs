@@ -113,23 +113,7 @@ fn main() {
             }
         }
     }
-    println!("done1");
-
-    writeln!(
-        &mut out_writer,
-        "\n\n\n\n\n\n____________________________\nrank\n"
-    )
-    .unwrap();
-    let sent_rank = summarizer::calculate_sentence_rank(&symilarity_matrix);
-    sent_rank.into_iter().enumerate().for_each(|(i, v)| {
-        writeln!(
-            &mut out_writer,
-            " {}\n{}",
-            v, sentences_data[stem_sentence[i].origin_id].title
-        )
-        .unwrap();
-    });
-    println!("done2")
+    println!("done");
 }
 
 fn calculate_mediana(vector: &mut Vec<f64>) -> f64 {
