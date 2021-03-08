@@ -119,7 +119,6 @@ fn sentence_similarity(s1: &[&str], s2: &[&str], stop_words: &[&str]) -> f64 {
 pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) -> Array2<f64> {
     let len = sentences.len();
     let mut matrix = Array2::<f64>::zeros((len, len));
-    let mut sum_column: Vec<f64> = vec![0.0; len];
     let m = Mutex::new(&mut matrix);
 
     let count = Mutex::new(0);
@@ -143,29 +142,6 @@ pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) 
         }
         println!("build_similarity_matrix {}%", c as f32 / len as f32 * 100.0);
     });
-
-    // at this point we have the cosine similarity of each sentence.
-    // take a leap of faith and assume that the cosine similarity is the probability that a sentence
-    // is important for summarization.
-    // We do this by normalizing the matrix along the column. The column values should add up to 1.
-    for j in 0..len {
-        let mut sum: f64 = 0.0;
-        for i in 0..len {
-            if i == j {
-                continue;
-            }
-            sum += matrix[[i, j]];
-        }
-        sum_column[j] = sum;
-    }
-    for i in 0..len {
-        for j in 0..len {
-            if i == j {
-                continue;
-            }
-            matrix[[i, j]] = matrix[[i, j]] / sum_column[j];
-        }
-    }
     matrix
 }
 
