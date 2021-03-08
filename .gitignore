@@ -1,3 +1,4 @@
 /target
 out.txt
+out*.txt
 Cargo.lock
