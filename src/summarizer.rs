@@ -1,39 +1,8 @@
-use ndarray::{Array1, Array2};
 use rayon::prelude::*;
+use sprs::{CsMat, TriMat};
 use std::collections::BTreeSet;
 use std::sync::Mutex;
 use unicode_segmentation::UnicodeSegmentation;
-
-fn summarize(text: &str, stop_words: &[&str], num_sentence: usize) -> String {
-    let sentences = text.unicode_sentences().collect::<Vec<&str>>();
-    if num_sentence >= sentences.len() {
-        return text.to_string();
-    }
-
-    let mut sentences_and_words = vec![];
-    sentences.iter().for_each(|&sentence| {
-        let words = split_into_words(sentence);
-        sentences_and_words.push(words);
-    });
-
-    let matrix = build_similarity_matrix(&sentences_and_words, stop_words);
-    let ranks = calculate_sentence_rank(&matrix);
-    let mut sorted_ranks = ranks.clone();
-    sorted_ranks.sort_by(|a, b| b.partial_cmp(a).unwrap());
-    let least_rank = sorted_ranks[num_sentence + 1];
-    let mut result: Vec<&str> = vec![];
-    let mut included_count = 0;
-    for i in 0..sentences.len() {
-        if ranks[i] >= least_rank {
-            included_count = included_count + 1;
-            result.push(sentences[i]);
-        }
-        if included_count == num_sentence {
-            break;
-        }
-    }
-    result.join("")
-}
 
 fn get_all_words_lc<'a>(sentence1: &[&'a str], sentence2: &[&'a str]) -> BTreeSet<String> {
     let mut all_words: BTreeSet<String> = BTreeSet::new();
@@ -116,11 +85,11 @@ fn sentence_similarity(s1: &[&str], s2: &[&str], stop_words: &[&str]) -> f64 {
 /// We take a leap of faith here and assume that cosine similarity is similar to the probability
 /// that a sentence is important for summarization
 ///
-pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) -> Array2<f64> {
+pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) -> CsMat<f64> {
     let len = sentences.len();
-    let mut matrix = Array2::<f64>::zeros((len, len));
-    let m = Mutex::new(&mut matrix);
 
+    let mut matrix_tri = TriMat::new((len, len));
+    let matrix_tri_mutex = Mutex::new(&mut matrix_tri);
     let count = Mutex::new(0);
     (0..len).into_par_iter().for_each(|i| {
         for j in 0..len {
@@ -129,9 +98,12 @@ pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) 
             }
             let res =
                 sentence_similarity(sentences[i].as_slice(), sentences[j].as_slice(), stop_words);
-            {
-                let mut matr = m.lock().unwrap();
-                (*matr)[[i, j]] = res;
+
+            if res > f64::EPSILON {
+                {
+                    let mut matr = matrix_tri_mutex.lock().unwrap();
+                    (*matr).add_triplet(i, j, res);
+                }
             }
         }
         let c;
@@ -142,41 +114,41 @@ pub fn build_similarity_matrix(sentences: &Vec<Vec<&str>>, stop_words: &[&str]) 
         }
         println!("build_similarity_matrix {}%", c as f32 / len as f32 * 100.0);
     });
-    matrix
+    matrix_tri.to_csr()
 }
 
 ///
 /// Calculate a sentence rank similar to a page rank.
 /// Please refer to [PageRank](https://en.wikipedia.org/wiki/PageRank) for more details.
 ///
-pub fn calculate_sentence_rank(similarity_matrix: &Array2<f64>) -> Vec<f64> {
-    let num_sentence = similarity_matrix.shape()[1];
-    let threshold = 0.001;
-    // Initialize a vector with the same value 1/number of sentences. Uniformly distributed across
-    // all sentences. NOTE: perhaps we can make some sentences more important than the rest?
-    let initial_vector: Vec<f64> = vec![1.0 / num_sentence as f64; num_sentence];
-    let mut result = Array1::from(initial_vector);
-    let mut prev_result = result.clone();
-    let damping_factor = 0.85;
-    let initial_m =
-        damping_factor * similarity_matrix + (1.0 - damping_factor) / num_sentence as f64;
-    loop {
-        result = initial_m.dot(&result);
-        let delta = &result - &prev_result;
-        let mut converged = true;
-        for i in 0..delta.len() {
-            if delta[i] > threshold {
-                converged = false;
-                break;
-            }
-        }
-        if converged {
-            break;
-        }
-        prev_result = result.clone();
-    }
-    result.into_raw_vec()
-}
+// pub fn calculate_sentence_rank(similarity_matrix: &Array2<f64>) -> Vec<f64> {
+//     let num_sentence = similarity_matrix.shape()[1];
+//     let threshold = 0.001;
+//     // Initialize a vector with the same value 1/number of sentences. Uniformly distributed across
+//     // all sentences. NOTE: perhaps we can make some sentences more important than the rest?
+//     let initial_vector: Vec<f64> = vec![1.0 / num_sentence as f64; num_sentence];
+//     let mut result = Array1::from(initial_vector);
+//     let mut prev_result = result.clone();
+//     let damping_factor = 0.85;
+//     let initial_m =
+//         damping_factor * similarity_matrix + (1.0 - damping_factor) / num_sentence as f64;
+//     loop {
+//         result = initial_m.dot(&result);
+//         let delta = &result - &prev_result;
+//         let mut converged = true;
+//         for i in 0..delta.len() {
+//             if delta[i] > threshold {
+//                 converged = false;
+//                 break;
+//             }
+//         }
+//         if converged {
+//             break;
+//         }
+//         prev_result = result.clone();
+//     }
+//     result.into_raw_vec()
+// }
 
 pub fn split_into_words(sentence: &str) -> Vec<&str> {
     let mut result = vec![];

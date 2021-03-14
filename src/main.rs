@@ -9,6 +9,8 @@ use std::path::Path;
 
 use ngrams::Ngrams;
 
+const DAY_IN_UNIX_TIME: i64 = 60 * 60 * 60;
+
 fn main() {
     println!("start");
 
@@ -35,9 +37,67 @@ fn main() {
     let stem_sentence = prepare_sentences(sentences, Lang::Ukr);
     println!("filtered by len data count {}", stem_sentence.len());
 
-    let split_at = 1000;
+    // let split_at = 1000;
+    let split_at = stem_sentence.len();
+
     let (stem_sentence, _) = stem_sentence.split_at(split_at);
 
+    let mut min_date = sentences_data[0].created;
+    let mut max_date = sentences_data[0].created;
+    sentences_data.iter().for_each(|s| {
+        if min_date > s.created {
+            min_date = s.created
+        }
+        if max_date < s.created {
+            max_date = s.created
+        }
+    });
+
+    let mut iter_n = 0;
+    while min_date < max_date {
+        min_date += DAY_IN_UNIX_TIME;
+
+        let stem_sentence_to_handle: Vec<&StemSentence> = stem_sentence
+            .iter()
+            .filter(|v| {
+                (min_date - DAY_IN_UNIX_TIME) < sentences_data[v.origin_id].created
+                    && min_date > sentences_data[v.origin_id].created
+            })
+            .map(|v| v)
+            .collect();
+
+        println!("to handle {}", stem_sentence_to_handle.len());
+        if stem_sentence_to_handle.len() == 0 {
+            continue;
+        }
+
+        do_work(
+            iter_n,
+            sentences_data.as_slice(),
+            stem_sentence_to_handle.as_slice(),
+            stop_words.as_slice(),
+        );
+        iter_n += 1;
+    }
+}
+
+fn do_work(
+    iter_n: i64,
+    sentences_data: &[Data],
+    stem_sentence: &[&StemSentence],
+    stop_words: &[&str],
+) {
+    let (mut first_created, mut last_created) =
+        (sentences_data[0].created, sentences_data[0].created);
+    &stem_sentence.iter().for_each(|v| {
+        let created = sentences_data[v.origin_id].created;
+        if created > last_created {
+            last_created = created;
+        }
+        if created < first_created {
+            first_created = created;
+        }
+    });
     let mut sentences_and_words = vec![];
     let mut sentences_and_ngrams = vec![];
     stem_sentence.iter().for_each(|sentence| {
@@ -57,7 +117,6 @@ fn main() {
         .iter()
         .map(|v| v.iter().map(|v2| v2.as_str()).collect())
         .collect();
-
     sentences_and_words
         .iter_mut()
         .enumerate()
@@ -67,39 +126,29 @@ fn main() {
     let symilarity_matrix = summarizer::build_similarity_matrix(&sentences_and_words, &stop_words);
     println!("done build similarity_matrix");
 
-    let mut symilarity_vals = vec![];
-    symilarity_matrix.iter().for_each(|&v| {
-        if v >= f64::EPSILON {
-            symilarity_vals.push(v)
-        }
-    });
-
-    let mut out_writer = Box::new(BufWriter::new(File::create(&Path::new("out.txt")).unwrap()));
+    let mut out_writer = Box::new(BufWriter::new(
+        File::create(&Path::new(format!("out_{}.txt", iter_n).as_str())).unwrap(),
+    ));
     out_writer.write(b"Test output\n").unwrap();
-
-    println!("start calc mediana");
-    let symilarity_median = calculate_mediana(&mut symilarity_vals);
-    println!("done calc mediana");
-
-    writeln!(&mut out_writer, " median {}", symilarity_median).unwrap();
-
-    let sh = symilarity_matrix.shape();
-    let (i_max, _j_max) = (sh[0] - 1, sh[1] - 1);
-
+    let (i_max, _j_max) = symilarity_matrix.shape();
     for i in 0..i_max {
         let mut writed = false;
 
         let j_min = if i < 200 { 0 } else { i - 200 };
         for j in j_min..i {
-            let sym = symilarity_matrix[[i, j]];
-            if sym > symilarity_median + symilarity_median * 1.0 / 51.0 {
+            let sym = match symilarity_matrix.get(i, j) {
+                Some(v) => *v,
+                None => 0.0,
+            };
+
+            if sym >= 0.1 {
                 if !writed {
                     writeln!(
                         &mut out_writer,
                         "!!!!! {} {}",
                         i, &sentences_data[stem_sentence[i].origin_id].title
                     )
-                    .unwrap();
+                    .expect("err write to file");
                     writed = true;
                 }
                 writeln!(
@@ -114,10 +163,4 @@ fn main() {
         }
     }
     println!("done");
-}
-
-fn calculate_mediana(vector: &mut Vec<f64>) -> f64 {
-    vector.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let middle_index = vector.len() / 2;
-    *vector.get(middle_index).unwrap()
 }
